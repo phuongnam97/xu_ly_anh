@@ -1,85 +1,78 @@
-import cv2
 import numpy as np
+import cv2 as cv
 import matplotlib.pyplot as plt
 
-path = 'image/'
-fileName = 'bo-dan-ga-3-compressed.jpg'
-img = cv2.imread(path + fileName)
-# chuyen thanh anh xam
-gray_im = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+original = cv.imread('image/oranges-organic-farmdrop18-March2010641.jpg')
+thresh_type_inv = False
 
-# can bang histogram
-im_equal = cv2.equalizeHist(gray_im)
+# original = cv.imread('image/danga.jpg')
+# thresh_type_inv = True
 
-# gray_correct = np.array(255 * (gray_im / 255) ** 1.2, dtype='uint8')
+f, axes = plt.subplots(2, 3)
 
-thresh = cv2.adaptiveThreshold(im_equal, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, 20)
+thresh_value = 235
+dil_ero_value_x = 15
+dil_ero_value_y = 15
+ksize_2 = 7
 
-# thresh = cv2.bitwise_not(thresh)
 
-kernel = np.ones((15, 15), np.uint8)
-# Phép co
-img_erode = cv2.erode(thresh, kernel, iterations=1)
-# Phép giãn
-img_dilation = cv2.dilate(img_erode, kernel, iterations=1)
+# thresh_type_inv = Truealse
 
-ret, labels = cv2.connectedComponents(img_dilation)
-label_hue = np.uint8(179 * labels / np.max(labels))
-blank_ch = 255 * np.ones_like(label_hue)
-labeled_img = cv2.merge([label_hue, blank_ch, blank_ch])
-labeled_img = cv2.cvtColor(labeled_img, cv2.COLOR_HSV2BGR)
-labeled_img[label_hue == 0] = 0
+def show():
+    axes[0][0].set_title('Origin')
+    axes[0][0].imshow(original)
 
-print(ret)
-listValue = []
-count1 = 0
-count2 = 0
-for label in labels:
-    count1 += 1
+    # Convert image in grayscale
+    img = cv.cvtColor(original, cv.COLOR_BGR2GRAY)
+    axes[0][1].set_title('Grayscale image')
+    axes[0][1].imshow(img, cmap="gray", vmin=0, vmax=255)
+    cv.imwrite("GrayScale.jpg", img)
 
-for label in labels[0]:
-    count2 += 1
+    # Contrast adjusting with histogramm equalization
+    img = cv.equalizeHist(img)
+    axes[0][2].set_title('Histogram equalization')
+    axes[0][2].imshow(img, cmap="gray", vmin=0, vmax=255)
+    cv.imwrite("HistEqual.jpg", img)
 
-# lấy ds label
-# for x in range(count2):
-#     for y in range(count1):
-#         if labels[y][x] != 0:
-#             # print("x: " + str(x) + "  y : " + str(y) + "value " + str(labels[y][x]))
-#             if labels[y][x] not in listValue:
-#                 listValue.append(labels[y][x])
-#
-# print(listValue)
-#
-# # lấy obj so với mask
-# for value in listValue:
-#     maxX = 0
-#     maxY = 0
-#     minX = 1000000
-#     minY = 1000000
-#
-#     for x in range(count2):
-#         for y in range(count1):
-#             if labels[y][x] == value:
-#                 if x > maxX:
-#                     maxX = x
-#                 if y > maxY:
-#                     maxY = y
-#                 if x < minX:
-#                     minX = x
-#                 if y < minY:
-#                     minY = y
-#     print("===============")
-#     print(maxX)
-#     print(maxY)
-#     print(minX)
-#     print(minY)
-#     print(maxX - minX)
-#     print(maxY - minY)
+    # Local adaptative threshold
+    if thresh_type_inv:
+        thresh_type = cv.THRESH_BINARY_INV
+    else:
+        thresh_type = cv.THRESH_BINARY
+    t_val, img = cv.threshold(img, thresh_value, 255, thresh_type)
+    cv.imwrite("Thresh.jpg", img)
+    # img = cv.bitwise_not(img)
 
-plt.subplot(222)
-plt.title('Objects counted:' + str(ret - 1))
-plt.imshow(labeled_img)
-# plt.imshow(gray_im)
-print('objects number is:', ret - 1)
+    # img = cv.medianBlur(img, ksize=ksize_1)
+    axes[1][0].set_title(
+        'thresh val =' + str(t_val)
+    )
+    axes[1][0].imshow(img, cmap="gray", vmin=0, vmax=255)
 
+    # Dilatation et erosion
+    kernel = np.ones((dil_ero_value_x, dil_ero_value_y), np.uint8)
+    img = cv.dilate(img, kernel, iterations=1)
+    cv.imwrite("dilate.jpg", img)
+    img = cv.erode(img, kernel, iterations=1)
+    cv.imwrite("erode.jpg", img)
+    # clean all noise after dilatation and erosion
+    img = cv.medianBlur(img, ksize=ksize_2)
+    cv.imwrite("Median_blur.jpg", img)
+    axes[1][1].set_title(
+        'D&E (nm,.): ' + str(dil_ero_value_x) + '-' + str(dil_ero_value_y) + '\nksize(cv): ' + str(ksize_2))
+    axes[1][1].imshow(img, cmap="gray", vmin=0, vmax=255)
+
+    # Labeling
+    ret, labels = cv.connectedComponents(img)
+    label_hue = np.uint8(179 * labels / np.max(labels))
+    blank_ch = 255 * np.ones_like(label_hue)
+    img = cv.merge([label_hue, blank_ch, blank_ch])
+    img = cv.cvtColor(img, cv.COLOR_HSV2BGR)
+    img[label_hue == 0] = 0
+    axes[1][2].imshow(img)
+    axes[1][2].set_title('Objects counted:' + str(ret - 1))
+    cv.imwrite("label.jpg", img)
+
+
+show()
 plt.show()
